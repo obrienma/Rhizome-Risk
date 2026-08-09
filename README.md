@@ -2,9 +2,9 @@
   <img width="200" alt="Rhizome Risk" src="assets/rhizome-risk-logo-purple-nodes.png" />
 </p>
 
-**Rhizome Risk** is an interconnected system of backend and AI services, built to demonstrate production patterns for asynchronous message processing, semantic caching, retrieval-augmented generation (RAG), automated LLM evaluation, and fault-tolerant distributed systems. Fraud and compliance risk detection is the domain used to prove the architecture — evaluating event streams (financial transactions, API activity, raw system telemetry) for risk while keeping every AI-generated judgment inside a hard boundary a human or deterministic rule can override — but the architecture itself is domain-agnostic.
+**Rhizome Risk** is a fault-tolerant system of backend and AI services, built around a single question: where should an AI system be allowed to make the call, and where shouldn't it? Fraud and compliance risk detection is the proving ground; the architecture underneath is domain-agnostic.
 
-> **The thesis running through every service:** the LLM reasons, it never owns the decision. Every AI-generated risk judgment passes through a deterministic rule or a human-reviewable override before it can affect an outcome.
+> **The LLM reasons — it never owns the decision.** Every AI-generated risk judgment passes through a deterministic rule or a human-reviewable override before it can affect an outcome.
 
 ## 📖 **Further reading**
 - [Closing the Loop: What We Actually Shipped from the Roadmap](https://cyberrhizome.ca/blog/10-closing-the-loop-what-we-shipped)
@@ -13,7 +13,7 @@
 - [all writing →](https://cyberrhizome.ca/blog)
 
 ## ⚖️ **Evaluation**
-[Arbiter-L8](https://github.com/obrienma/Arbiter-L8) scores every AI-generated verdict against labeled ground truth and live traffic. Live-verified: Sentinel-L7 and its LLM judge layer both score 92% binary accuracy against a 25-item sample. Full methodology, caveats, and sample composition in Arbiter-L8's own README.
+[Arbiter-L8](https://github.com/obrienma/Arbiter-L8) scores every AI-generated verdict against labeled ground truth and live traffic. Live-verified: Sentinel-L7 and its LLM judge layer both score 92% binary accuracy against a 25-item sample. Full methodology, caveats, and sample composition in Arbiter-L8's own [README](https://github.com/obrienma/Arbiter-L8#readme).
 
 ## 🔭 **Observability**
 [Rhizome Lens](https://github.com/obrienma/rhizome-lens#readme) is the shared Grafana stack EventHorizon, Synapse-L4, Sentinel-L7, and Arbiter-L8 export traces and metrics to via OTLP.
@@ -38,9 +38,9 @@
 flowchart LR
     EH[EventHorizon]
     XY[Xylem-L6]
-    SL[synapse-l4]
-    AR[arbiter-L8<br/>external eval harness]
-    SentinelL7[sentinel-l7]
+    SL[Synapse-L4]
+    AR[Arbiter-L8<br/>external eval harness]
+    SentinelL7[Sentinel-L7]
     LE[Ledger-L5]
     RL[Rhizome-Lens]
 
@@ -57,9 +57,9 @@ flowchart LR
 
     click EH "https://github.com/obrienma/EventHorizon#readme" "Go to EventHorizon repo"
     click XY "https://github.com/obrienma/Xylem-L6#readme" "Go to Xylem-L6 repo"
-    click SL "https://github.com/obrienma/synapse-l4#readme" "Go to synapse-l4 repo"
-    click AR "https://github.com/obrienma/Arbiter-L8#readme" "Go to arbiter-L8 repo"
-    click SentinelL7 "https://github.com/obrienma/sentinel-l7#readme" "Go to sentinel-l7 repo"
+    click SL "https://github.com/obrienma/synapse-l4#readme" "Go to Synapse-L4 repo"
+    click AR "https://github.com/obrienma/Arbiter-L8#readme" "Go to Arbiter-L8 repo"
+    click SentinelL7 "https://github.com/obrienma/sentinel-L7#readme" "Go to Sentinel-L7 repo"
     click LE "https://github.com/obrienma/Ledger-L5#readme" "Go to Ledger-L5 repo"
     click RL "https://github.com/obrienma/Rhizome-Lens#readme" "Go to Rhizome-Lens repo"
 
@@ -76,7 +76,7 @@ flowchart LR
 -   **[Rhizome-Lens](https://github.com/obrienma/Rhizome-Lens)** is the shared observability layer: a self-hosted OTel Collector feeding Tempo, Loki, and Prometheus, visualized in Grafana.
 
 ## 🧭 **Engineering priorities**
-Design decisions across the system weigh six quality attributes against each other, not toward defaults:
+Design decisions across the system weigh quality attributes against each other, not toward defaults:
 
 -   **Observability** →
     -   Reliability
@@ -87,4 +87,6 @@ Design decisions across the system weigh six quality attributes against each oth
 
 **Security** and **Scalability** are cross-cutting concerns layered across the others.
 
-These attributes trade off against each other — tightening security adds friction to extendability; optimizing scalability early can work against maintainability. Every non-trivial decision is recorded in an Architectural Decision Record (ADR) before it's built, and once accepted, ADRs are only reversed by a new one, never edited. The thesis running through all of it: the LLM reasons, it never owns the decision.
+These attributes trade off against each other — tightening security adds friction to extendability; optimizing scalability early can work against maintainability.
+
+Every non-trivial decision is recorded in an Architectural Decision Record (ADR) before it's built, and once accepted, ADRs are only reversed by a new one, never edited. The thesis running through all of it: the LLM reasons, it never owns the decision.
