@@ -1,37 +1,39 @@
-<p align="center">
-  <img width="200" alt="Rhizome Risk" src="assets/rhizome-risk-logo-purple-nodes.png" />
-</p>
+![Rhizome Risk](https://github.com/obrienma/Rhizome-Risk/raw/master/assets/rhizome-risk-logo-purple-nodes.png)
 
-**Rhizome Risk** is a fault-tolerant system of backend and AI services, built around a single question: where should an AI system be allowed to make the call, and where shouldn't it? Fraud and compliance risk detection is the proving ground; the architecture underneath is domain-agnostic.
+# Rhizome Risk
 
-> **The LLM reasons — it never owns the decision.** Every AI-generated risk judgment passes through a deterministic rule or a human-reviewable override before it can affect an outcome.
+**The problem:** fraud and compliance detection systems increasingly hand judgment calls to an LLM — "is this transaction risky?" — with no hard floor under that judgment. If the model is wrong, or drifts, or gets a weird input, there's nothing stopping a bad call from becoming a real outcome (a frozen account, a missed fraud pattern, a compliance violation).
 
-## 📖 **Further reading**
-- [Closing the Loop: What We Actually Shipped from the Roadmap](https://cyberrhizome.ca/blog/10-closing-the-loop-what-we-shipped)
-- [Triple-Defense Idempotency in a Crash-Prone Event Stream](https://cyberrhizome.ca/blog/09-triple-defense-idempotency)
-- [GraphQL Over Four Planes: An ADR That Contradicted Itself](https://cyberrhizome.ca/blog/event-horizon-2026-07-06-graphql-and-the-n-plus-1-we-measured)
-- [all writing →](https://cyberrhizome.ca/blog)
+**The approach:** Rhizome Risk is a system where the LLM reasons, but never decides alone. Every AI-generated risk judgment has to pass through a deterministic rule or a human-reviewable override before it can affect anything. Fraud/compliance detection in financial transactions and SaaS account activity is the proving ground for this pattern — the architecture itself is domain-agnostic.
 
-## ⚖️ **Evaluation**
-[Arbiter-L8](https://github.com/obrienma/Arbiter-L8) scores every AI-generated verdict against labeled ground truth and live traffic. Live-verified: Sentinel-L7 and its LLM judge layer both score 92% binary accuracy against a 25-item sample. Full methodology, caveats, and sample composition in Arbiter-L8's own [README](https://github.com/obrienma/Arbiter-L8#readme).
+> **The LLM reasons — it never owns the decision.**
 
-## 🔭 **Observability**
-[Rhizome Lens](https://github.com/obrienma/rhizome-lens#readme) is the shared Grafana stack EventHorizon, Synapse-L4, Sentinel-L7, and Arbiter-L8 export traces and metrics to via OTLP.
+## How it works, in one example
 
-<p align="center">
-  <img width="75%" height="75%" alt="EventHorizon Grafana dashboard — RED metrics and distributed traces" src="https://github.com/user-attachments/assets/0f2c032c-612b-431d-83b2-f493bf43588c" />
-</p>
+A SaaS login comes in with a suspicious pattern (say, impossible travel — two logins from different continents minutes apart). Here's the path it takes:
 
+1.  **Xylem-L6** flags the activity using hand-built velocity checks — no ML here, just deterministic rules tracking per-identity state.
+2.  **Synapse-L4** picks up the flagged event, validates it against a typed contract, and hands off only what's safe to reason about downstream.
+3.  **Sentinel-L7** is where the LLM actually reasons — checking a semantic cache first, then RAG-backed reasoning, then falling back to hard rules if the model's confidence doesn't clear the bar. Its output is a *recommendation*, not an action.
+4.  A human or a deterministic rule makes the final call. The LLM's reasoning is visible, logged, and overridable — never the last word.
 
-##
-**Sentinel-L7** is a monolith with services upstream and downstream of it, has its own operational console for reviewing flagged transactions and case actions:
+That four-step path is the whole thesis. Everything below is how it's built and how it's checked.
 
-<p align="center">
-  <a href="https://github.com/user-attachments/assets/30673fc0-eee5-43ae-ac4f-e76b49bc550f"><img width="48%" alt="Live transaction feed" src="https://github.com/user-attachments/assets/30673fc0-eee5-43ae-ac4f-e76b49bc550f" /></a>
-  <a href="https://github.com/user-attachments/assets/666c862e-351c-4bec-be67-25cd69716864"><img width="48%" alt="Compliance events UI" src="https://github.com/user-attachments/assets/666c862e-351c-4bec-be67-25cd69716864" /></a>
-</p>
+## The services, in plain terms
 
-## ⚙️ **Under the hood**
+Seven services exist because each one owns a different trust boundary — not because more services is inherently better. Splitting them keeps "detect a signal" (Xylem-L6), "normalize and gate what reaches the model" (Synapse-L4), and "let the model reason within a fenced boundary" (Sentinel-L7) as separately testable, separately reasoned-about decisions.
+
+| Service | Stack | What it's for |
+| --- | --- | --- |
+| **[Sentinel-L7](https://github.com/obrienma/sentinel-l7#readme)** | PHP/Laravel | The compliance engine. Three-tier pipeline (semantic cache → LLM+RAG → rule-based fallback) that evaluates transactions against policy. Exposes an MCP server for direct querying. |
+| **[Synapse-L4](https://github.com/obrienma/synapse-l4#readme)** | Python/FastAPI | The gate. Consumes telemetry, validates it, emits typed events — this is the boundary that keeps raw LLM output from ever reaching downstream systems unchecked. |
+| **[EventHorizon](https://github.com/obrienma/EventHorizon#readme)** | TypeScript/Fastify | The telemetry pipeline — ingestion, processing, storage, observation. Backed by RabbitMQ and MongoDB, deployed on GKE. |
+| **[Xylem-L6](https://github.com/obrienma/Xylem-L6#readme)** | TypeScript/Zod | Ingests SaaS API activity and flags credential stuffing, impossible travel, and scope escalation using hand-built sliding-window checks. |
+| **[Arbiter-L8](https://github.com/obrienma/arbiter-l8#readme)** | Python | The evaluation harness — see below. |
+| **[Ledger-L5](https://github.com/obrienma/Ledger-L5#readme)** | Python/FastAPI | Usage-based billing off Sentinel-L7 activity. Early-stage. |
+| **[Rhizome-Lens](https://github.com/obrienma/Rhizome-Lens)** | OTel/Grafana | Shared observability layer — all other services export traces and metrics here. |
+
+## Architecture
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '10px'}, 'flowchart': {'nodeSpacing': 15, 'rankSpacing': 25}}}%%
@@ -67,26 +69,36 @@ flowchart LR
     class EH,XY,SL,AR,SentinelL7,LE,RL clickable
 ```
 
--   **[Sentinel-L7](https://github.com/obrienma/sentinel-l7#readme)** (PHP/Laravel) is the compliance engine at the center: a three-tier pipeline — semantic cache, then LLM+RAG reasoning, then a rule-based fallback — that evaluates transactions against policy. It runs on Redis Streams consumer groups and exposes an MCP server for direct querying.
--   **[Synapse-L4](https://github.com/obrienma/synapse-l4#readme)** (Python/FastAPI) is a sidecar that consumes telemetry, extracts and evaluates it, and emits typed, contract-enforced events — the boundary that keeps LLM output from reaching downstream systems unchecked.
--   **[EventHorizon](https://github.com/obrienma/EventHorizon#readme)** (TypeScript/Fastify) is the telemetry pipeline: ingestion through processing, storage, and observation, backed by RabbitMQ and MongoDB, deployed on GKE.
--   **[Xylem-L6](https://github.com/obrienma/Xylem-L6#readme)** (TypeScript/Zod) ingests SaaS API activity and evaluates it for credential stuffing, impossible travel, and scope escalation using hand-built sliding-window velocity checks and per-identity state — no framework shortcuts.
--   **[Arbiter-L8](https://github.com/obrienma/arbiter-l8#readme)** (Python) is the evaluation harness: offline precision/recall/F1 against fixtures, plus an online cost-ordered pipeline that escalates from heuristics through cross-provider disagreement checks to an LLM judge only when needed.
--   **[Ledger-L5](https://github.com/obrienma/Ledger-L5#readme)** (Python/FastAPI) handles usage-based billing off Sentinel-L7 activity — early stages.
--   **[Rhizome-Lens](https://github.com/obrienma/Rhizome-Lens)** is the shared observability layer: a self-hosted OTel Collector feeding Tempo, Loki, and Prometheus, visualized in Grafana.
+## Evaluation
 
-## 🧭 **Engineering priorities**
+**Arbiter-L8** scores every AI-generated verdict against labeled ground truth and live traffic, using a cost-ordered pipeline: cheap heuristics first, escalating to cross-provider disagreement checks, and only calling an LLM judge when those don't resolve it.
+
+**Current numbers, honestly stated:** Sentinel-L7's LLM judge layer scores 92% binary accuracy on a 25-item labeled sample. That sample is small — it's an early checkpoint, not a claim of production-grade reliability, and the plan is to grow it before leaning on the number for anything load-bearing. Full methodology and sample composition are in [Arbiter-L8's README](https://github.com/obrienma/Arbiter-L8#readme).
+
+## Observability
+
+**Rhizome Lens** is the shared Grafana stack — EventHorizon, Synapse-L4, Sentinel-L7, and Arbiter-L8 all export traces and metrics to it via OTLP, so a transaction's path through the whole system is traceable end to end.
+
+<p align="center">
+  <img width="75%" height="75%" alt="EventHorizon Grafana dashboard — RED metrics and distributed traces" src="https://github.com/user-attachments/assets/0f2c032c-612b-431d-83b2-f493bf43588c" />
+</p>
+
+-   EventHorizon Grafana dashboard — RED metrics and distributed traces
+-   Sentinel-L7 operational console — live transaction feed and compliance events UI
+
+## Engineering priorities
+
 Design decisions across the system weigh quality attributes against each other, not toward defaults:
 
--   **Observability** →
-    -   Reliability
-    -   Resilience
--   **Testability** →
-    -   Maintainability
-    -   Extendability
+-   **Observability →** Reliability, Resilience
+-   **Testability →** Maintainability, Extendability
+-   **Security** and **Scalability** are cross-cutting concerns layered across the others.
 
-**Security** and **Scalability** are cross-cutting concerns layered across the others.
+These trade off against each other — tightening security adds friction to extendability; optimizing scalability early can work against maintainability. Every non-trivial decision is recorded in an Architectural Decision Record (ADR) before it's built; once accepted, ADRs are only reversed by a new one, never edited.
 
-These attributes trade off against each other — tightening security adds friction to extendability; optimizing scalability early can work against maintainability.
+## Further reading
 
-Every non-trivial decision is recorded in an Architectural Decision Record (ADR) before it's built, and once accepted, ADRs are only reversed by a new one, never edited. The thesis running through all of it: the LLM reasons, it never owns the decision.
+-   [Closing the Loop: What We Actually Shipped from the Roadmap](https://cyberrhizome.ca/blog/10-closing-the-loop-what-we-shipped)
+-   [Triple-Defense Idempotency in a Crash-Prone Event Stream](https://cyberrhizome.ca/blog/09-triple-defense-idempotency)
+-   [GraphQL Over Four Planes: An ADR That Contradicted Itself](https://cyberrhizome.ca/blog/event-horizon-2026-07-06-graphql-and-the-n-plus-1-we-measured)
+-   [all writing →](https://cyberrhizome.ca/blog)
