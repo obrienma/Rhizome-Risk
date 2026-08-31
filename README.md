@@ -1,8 +1,6 @@
 <p align="center">
-  <img width="200" alt="Rhizome Risk" src="assets/rhizome-risk-logo-purple-nodes.png" />
+  <img width="300" alt="Rhizome Risk" src="assets/rhizome-risk-logo-purple-nodes.png" />
 </p>
-
-# Rhizome Risk
 
 **The problem:** fraud and compliance detection systems increasingly hand judgment calls to an LLM — "is this transaction risky?" — with no hard floor under that judgment. If the model is wrong, or drifts, or gets a weird input, there's nothing stopping a bad call from becoming a real outcome (a frozen account, a missed fraud pattern, a compliance violation).
 
