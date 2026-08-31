@@ -1,4 +1,6 @@
-![Rhizome Risk](https://github.com/obrienma/Rhizome-Risk/raw/master/assets/rhizome-risk-logo-purple-nodes.png)
+<p align="center">
+  <img width="200" alt="Rhizome Risk" src="assets/rhizome-risk-logo-purple-nodes.png" />
+</p>
 
 # Rhizome Risk
 
