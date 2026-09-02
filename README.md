@@ -2,7 +2,7 @@
   <img width="300" alt="Rhizome Risk" src="assets/rhizome-risk-logo-purple-nodes.png" />
 </p>
 
-**The problem:** fraud and compliance detection systems increasingly hand judgment calls to an LLM — "is this transaction risky?" — with no hard floor under that judgment. If the model is wrong, or drifts, or gets a weird input, there's nothing stopping a bad call from becoming a real outcome (a frozen account, a missed fraud pattern, a compliance violation).
+**The problem:** Fraud and compliance detection systems increasingly hand judgment calls to an LLM — "is this transaction risky?" — with no hard floor under that judgment. If the model is wrong, or drifts, or gets a weird input, there's nothing stopping a bad call from becoming a real outcome (a frozen account, a missed fraud pattern, a compliance violation).
 
 **The approach:** Rhizome Risk is a system where the LLM reasons, but never decides alone. Every AI-generated risk judgment has to pass through a deterministic rule or a human-reviewable override before it can affect anything. Fraud/compliance detection in financial transactions and SaaS account activity is the proving ground for this pattern — the architecture itself is domain-agnostic.
 
@@ -12,12 +12,13 @@
 
 A SaaS login comes in with a suspicious pattern (say, impossible travel — two logins from different continents minutes apart). Here's the path it takes:
 
-1.  **Xylem-L6** flags the activity using hand-built velocity checks — no ML here, just deterministic rules tracking per-identity state.
-2.  **Synapse-L4** picks up the flagged event, validates it against a typed contract, and hands off only what's safe to reason about downstream.
-3.  **Sentinel-L7** is where the LLM actually reasons — checking a semantic cache first, then RAG-backed reasoning, then falling back to hard rules if the model's confidence doesn't clear the bar. Its output is a *recommendation*, not an action.
-4.  A human or a deterministic rule makes the final call. The LLM's reasoning is visible, logged, and overridable — never the last word.
+1. **Xylem-L6** flags the activity using hand-built velocity checks — no ML here, just deterministic rules tracking per-identity state.
+2. **Synapse-L4** picks up the flagged event, validates it against a typed contract, and hands off only what's safe to reason about downstream.
+3. **Sentinel-L7** is where the LLM actually reasons — checking a semantic cache first, then RAG-backed reasoning, then falling back to hard rules if the model's confidence doesn't clear the bar. Its output is a *recommendation*, not an action.
+4. A human or a deterministic rule makes the final call. The LLM's reasoning is visible, logged, and overridable — never the last word.
+5. **Arbiter-L8** runs labeled versions of this exact scenario back through steps 2–3 on an ongoing basis, checking whether Sentinel-L7's confidence *should* have deferred to the fallback in step 4 but didn't. "Never the last word" isn't just asserted — it's measured, and the current numbers are in [Evaluation](#evaluation) below.
 
-That four-step path is the whole thesis. Everything below is how it's built and how it's checked.
+That five-step path is the whole thesis: an LLM that reasons but never decides alone, and a harness that checks whether it actually held that line.
 
 ## The services, in plain terms
 
@@ -40,11 +41,11 @@ Seven services exist because each one owns a different trust boundary — not be
 flowchart LR
     EH[EventHorizon]
     XY[Xylem-L6]
-    SL[Synapse-L4]
-    AR[Arbiter-L8<br/>external eval harness]
-    SentinelL7[Sentinel-L7]
-    LE[Ledger-L5]
-    RL[Rhizome-Lens]
+    SL[Synapse-L4<br/>Validation]
+    AR[Arbiter-L8<br/>External Eval Harness]
+    SentinelL7[Sentinel-L7<br/>Compliance Engine]
+    LE[Ledger-L5<br/>Billing]
+    RL[Rhizome-Lens<br/>Observability]
 
     SL ~~~ AR
 
@@ -84,7 +85,6 @@ flowchart LR
 </p>
 
 -   EventHorizon Grafana dashboard — RED metrics and distributed traces
--   Sentinel-L7 operational console — live transaction feed and compliance events UI
 
 ## Engineering priorities
 
