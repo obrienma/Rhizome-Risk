@@ -4,7 +4,7 @@
 
 **The problem:** Fraud and compliance detection systems increasingly hand judgment calls to an LLM — "is this transaction risky?" — with no hard floor under that judgment. If the model is wrong, or drifts, or gets a weird input, there's nothing stopping a bad call from becoming a real outcome (a frozen account, a missed fraud pattern, a compliance violation).
 
-**The approach:** Rhizome Risk is a system where the LLM reasons, but never decides alone. Every AI-generated risk judgment has to pass through a deterministic rule or a human-reviewable override before it can affect anything. Fraud/compliance detection in financial transactions and SaaS account activity is the proving ground for this pattern — the architecture itself is domain-agnostic.
+**The approach:** Rhizome Risk is a system where the LLM reasons, but never decides alone. Every AI-generated risk judgment passes through a deterministic rule or a human-reviewable override before it can affect anything. Fraud/compliance detection in financial transactions and SaaS account activity is the proving ground for this pattern — the architecture itself is domain-agnostic.
 
 > **The LLM reasons — it never owns the decision.**
 
